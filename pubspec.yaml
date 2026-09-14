@@ -44,6 +44,7 @@ dependencies:
   camera: ^0.12.1
   image_picker: ^1.2.3
   fl_chart: ^1.2.0
+  drift_flutter: ^0.3.1
 
 dev_dependencies:
   flutter_test:
