@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 import '../database/database.dart';
 import '../providers/database_provider.dart';
@@ -20,17 +21,50 @@ class _PickedMedia {
 }
 
 class TodayDiaryPage extends ConsumerStatefulWidget {
-  const TodayDiaryPage({super.key});
+  const TodayDiaryPage({super.key, this.date});
+
+  /// The diary date this page composes/edits an entry for.
+  /// Defaults to today when not provided (the bottom-nav "Today" tab).
+  final DateTime? date;
 
   @override
   ConsumerState<TodayDiaryPage> createState() => _TodayDiaryPageState();
 }
 
 class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
+  late final DateTime _targetDate = widget.date ?? DateTime.now();
   final _contentController = TextEditingController();
   final _picker = ImagePicker();
   final List<_PickedMedia> _pickedMedia = [];
+  int? _existingEntryId;
+  bool _loading = true;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExisting();
+  }
+
+  Future<void> _loadExisting() async {
+    final db = ref.read(databaseProvider);
+    final existing = await db.entryForDate(_targetDate);
+    if (!mounted) return;
+    if (existing != null) {
+      _existingEntryId = existing.entry.id;
+      _contentController.text = existing.entry.content;
+      _pickedMedia.addAll(
+        existing.media.map(
+          (m) => _PickedMedia(
+            bytes: m.data,
+            mimeType: m.mimeType,
+            type: m.type,
+          ),
+        ),
+      );
+    }
+    setState(() => _loading = false);
+  }
 
   @override
   void dispose() {
@@ -79,31 +113,23 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
     setState(() => _saving = true);
     final db = ref.read(databaseProvider);
     try {
-      final entryId = await db
-          .into(db.diaryEntries)
-          .insert(
-            DiaryEntriesCompanion.insert(
-              date: DateTime.now(),
-              content: _contentController.text.trim(),
+      final entryId = await db.upsertEntry(
+        existingId: _existingEntryId,
+        date: _targetDate,
+        content: _contentController.text.trim(),
+        mediaRows: [
+          for (final m in _pickedMedia)
+            MediaCompanion.insert(
+              entryId: 0, // overwritten by upsertEntry
+              data: m.bytes,
+              mimeType: m.mimeType,
+              type: m.type,
             ),
-          );
-
-      for (final media in _pickedMedia) {
-        await db
-            .into(db.media)
-            .insert(
-              MediaCompanion.insert(
-                entryId: entryId,
-                data: media.bytes,
-                mimeType: media.mimeType,
-                type: media.type,
-              ),
-            );
-      }
+        ],
+      );
+      _existingEntryId = entryId;
 
       if (!mounted) return;
-      _contentController.clear();
-      setState(() => _pickedMedia.clear());
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('저장했습니다')));
@@ -114,8 +140,20 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isToday = widget.date == null;
+    final title = isToday
+        ? 'Today'
+        : DateFormat('yyyy.MM.dd').format(_targetDate);
+
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Today')),
+      appBar: AppBar(title: Text(title)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -144,24 +182,45 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
                       final media = _pickedMedia[index];
-                      return ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: media.type == MediaType.photo
-                            ? Image.memory(
-                                media.bytes,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                              )
-                            : Container(
-                                width: 80,
-                                height: 80,
-                                color: Colors.black12,
-                                child: const Icon(
-                                  Icons.videocam,
-                                  size: 32,
+                      return Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: media.type == MediaType.photo
+                                ? Image.memory(
+                                    media.bytes,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Container(
+                                    width: 80,
+                                    height: 80,
+                                    color: Colors.black12,
+                                    child: const Icon(
+                                      Icons.videocam,
+                                      size: 32,
+                                    ),
+                                  ),
+                          ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: () =>
+                                  setState(() => _pickedMedia.removeAt(index)),
+                              child: const CircleAvatar(
+                                radius: 10,
+                                backgroundColor: Colors.black54,
+                                child: Icon(
+                                  Icons.close,
+                                  size: 12,
+                                  color: Colors.white,
                                 ),
                               ),
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),

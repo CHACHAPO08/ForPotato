@@ -50,8 +50,74 @@ class EntryWithMedia {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  /// Used by tests to inject an in-memory executor instead of opening a real
+  /// database file / IndexedDB store.
+  AppDatabase.forTesting(super.executor);
+
   @override
   int get schemaVersion => 1;
+
+  Stream<Set<DateTime>> watchEntryDates() {
+    return select(diaryEntries).watch().map(
+      (entries) => entries
+          .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
+          .toSet(),
+    );
+  }
+
+  Future<EntryWithMedia?> entryForDate(DateTime date) async {
+    final start = DateTime(date.year, date.month, date.day);
+    final end = start.add(const Duration(days: 1));
+    final entry = await (select(diaryEntries)..where(
+          (t) =>
+              t.date.isBiggerOrEqualValue(start) &
+              t.date.isSmallerThanValue(end),
+        ))
+        .getSingleOrNull();
+    if (entry == null) return null;
+
+    final entryMedia = await (select(
+      media,
+    )..where((m) => m.entryId.equals(entry.id))).get();
+    return EntryWithMedia(entry: entry, media: entryMedia);
+  }
+
+  Future<int> upsertEntry({
+    required int? existingId,
+    required DateTime date,
+    required String content,
+    required List<MediaCompanion> mediaRows,
+  }) async {
+    return transaction(() async {
+      final int entryId;
+      if (existingId != null) {
+        await (update(
+          diaryEntries,
+        )..where((t) => t.id.equals(existingId))).write(
+          DiaryEntriesCompanion(
+            content: Value(content),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+        await (delete(
+          media,
+        )..where((m) => m.entryId.equals(existingId))).go();
+        entryId = existingId;
+      } else {
+        entryId = await into(diaryEntries).insert(
+          DiaryEntriesCompanion.insert(date: date, content: content),
+        );
+      }
+
+      for (final row in mediaRows) {
+        await into(
+          media,
+        ).insert(row.copyWith(entryId: Value(entryId)));
+      }
+
+      return entryId;
+    });
+  }
 
   Stream<List<EntryWithMedia>> watchEntriesWithMedia() {
     final entriesQuery = select(diaryEntries)
