@@ -39,12 +39,37 @@ class Media extends Table {
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 }
 
+class EntryWithMedia {
+  EntryWithMedia({required this.entry, required this.media});
+
+  final DiaryEntry entry;
+  final List<MediaData> media;
+}
+
 @DriftDatabase(tables: [DiaryEntries, Tags, EntryTags, Media])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
   int get schemaVersion => 1;
+
+  Stream<List<EntryWithMedia>> watchEntriesWithMedia() {
+    final entriesQuery = select(diaryEntries)
+      ..orderBy([(t) => OrderingTerm.desc(t.date)]);
+
+    return entriesQuery.watch().asyncMap((entries) async {
+      final result = <EntryWithMedia>[];
+      for (final entry in entries) {
+        final entryMedia =
+            await (select(media)
+                  ..where((m) => m.entryId.equals(entry.id))
+                  ..orderBy([(m) => OrderingTerm.asc(m.sortOrder)]))
+                .get();
+        result.add(EntryWithMedia(entry: entry, media: entryMedia));
+      }
+      return result;
+    });
+  }
 }
 
 QueryExecutor _openConnection() {

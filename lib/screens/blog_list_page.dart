@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
-class BlogListPage extends StatelessWidget {
+import '../database/database.dart';
+import '../providers/database_provider.dart';
+
+final _entriesProvider = StreamProvider<List<EntryWithMedia>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.watchEntriesWithMedia();
+});
+
+class BlogListPage extends ConsumerWidget {
   const BlogListPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(_entriesProvider);
+    final dateFormat = DateFormat('yyyy.MM.dd (E)');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('전체 글'),
@@ -24,7 +37,69 @@ class BlogListPage extends StatelessWidget {
           ),
         ),
       ),
-      body: const Center(child: Text('전체 글 목록 (태그/사진 필터)')),
+      body: entriesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('오류: $error')),
+        data: (entries) {
+          if (entries.isEmpty) {
+            return const Center(child: Text('아직 작성한 글이 없습니다'));
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: entries.length,
+            separatorBuilder: (_, _) => const Divider(height: 32),
+            itemBuilder: (context, index) {
+              final item = entries[index];
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    dateFormat.format(item.entry.date),
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  if (item.entry.content.isNotEmpty)
+                    Text(item.entry.content),
+                  if (item.media.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 90,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: item.media.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (context, mediaIndex) {
+                          final media = item.media[mediaIndex];
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: media.type == MediaType.photo
+                                ? Image.memory(
+                                    media.data,
+                                    width: 90,
+                                    height: 90,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Container(
+                                    width: 90,
+                                    height: 90,
+                                    color: Colors.black12,
+                                    child: const Icon(
+                                      Icons.videocam,
+                                      size: 32,
+                                    ),
+                                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
