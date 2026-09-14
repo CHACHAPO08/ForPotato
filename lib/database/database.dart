@@ -33,7 +33,8 @@ class Media extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get entryId =>
       integer().references(DiaryEntries, #id, onDelete: KeyAction.cascade)();
-  TextColumn get filePath => text()();
+  BlobColumn get data => blob()();
+  TextColumn get mimeType => text()();
   IntColumn get type => intEnum<MediaType>()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 }

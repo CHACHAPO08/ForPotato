@@ -827,12 +827,21 @@ class $MediaTable extends Media with TableInfo<$MediaTable, MediaData> {
       'REFERENCES diary_entries (id) ON DELETE CASCADE',
     ),
   );
-  static const VerificationMeta _filePathMeta = const VerificationMeta(
-    'filePath',
+  static const VerificationMeta _dataMeta = const VerificationMeta('data');
+  @override
+  late final GeneratedColumn<Uint8List> data = GeneratedColumn<Uint8List>(
+    'data',
+    aliasedName,
+    false,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mimeTypeMeta = const VerificationMeta(
+    'mimeType',
   );
   @override
-  late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
-    'file_path',
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+    'mime_type',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -863,7 +872,8 @@ class $MediaTable extends Media with TableInfo<$MediaTable, MediaData> {
   List<GeneratedColumn> get $columns => [
     id,
     entryId,
-    filePath,
+    data,
+    mimeType,
     type,
     sortOrder,
   ];
@@ -890,13 +900,21 @@ class $MediaTable extends Media with TableInfo<$MediaTable, MediaData> {
     } else if (isInserting) {
       context.missing(_entryIdMeta);
     }
-    if (data.containsKey('file_path')) {
+    if (data.containsKey('data')) {
       context.handle(
-        _filePathMeta,
-        filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta),
+        _dataMeta,
+        this.data.isAcceptableOrUnknown(data['data']!, _dataMeta),
       );
     } else if (isInserting) {
-      context.missing(_filePathMeta);
+      context.missing(_dataMeta);
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(
+        _mimeTypeMeta,
+        mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mimeTypeMeta);
     }
     if (data.containsKey('sort_order')) {
       context.handle(
@@ -921,9 +939,13 @@ class $MediaTable extends Media with TableInfo<$MediaTable, MediaData> {
         DriftSqlType.int,
         data['${effectivePrefix}entry_id'],
       )!,
-      filePath: attachedDatabase.typeMapping.read(
+      data: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}data'],
+      )!,
+      mimeType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}file_path'],
+        data['${effectivePrefix}mime_type'],
       )!,
       type: $MediaTable.$convertertype.fromSql(
         attachedDatabase.typeMapping.read(
@@ -950,13 +972,15 @@ class $MediaTable extends Media with TableInfo<$MediaTable, MediaData> {
 class MediaData extends DataClass implements Insertable<MediaData> {
   final int id;
   final int entryId;
-  final String filePath;
+  final Uint8List data;
+  final String mimeType;
   final MediaType type;
   final int sortOrder;
   const MediaData({
     required this.id,
     required this.entryId,
-    required this.filePath,
+    required this.data,
+    required this.mimeType,
     required this.type,
     required this.sortOrder,
   });
@@ -965,7 +989,8 @@ class MediaData extends DataClass implements Insertable<MediaData> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['entry_id'] = Variable<int>(entryId);
-    map['file_path'] = Variable<String>(filePath);
+    map['data'] = Variable<Uint8List>(data);
+    map['mime_type'] = Variable<String>(mimeType);
     {
       map['type'] = Variable<int>($MediaTable.$convertertype.toSql(type));
     }
@@ -977,7 +1002,8 @@ class MediaData extends DataClass implements Insertable<MediaData> {
     return MediaCompanion(
       id: Value(id),
       entryId: Value(entryId),
-      filePath: Value(filePath),
+      data: Value(data),
+      mimeType: Value(mimeType),
       type: Value(type),
       sortOrder: Value(sortOrder),
     );
@@ -991,7 +1017,8 @@ class MediaData extends DataClass implements Insertable<MediaData> {
     return MediaData(
       id: serializer.fromJson<int>(json['id']),
       entryId: serializer.fromJson<int>(json['entryId']),
-      filePath: serializer.fromJson<String>(json['filePath']),
+      data: serializer.fromJson<Uint8List>(json['data']),
+      mimeType: serializer.fromJson<String>(json['mimeType']),
       type: $MediaTable.$convertertype.fromJson(
         serializer.fromJson<int>(json['type']),
       ),
@@ -1004,7 +1031,8 @@ class MediaData extends DataClass implements Insertable<MediaData> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'entryId': serializer.toJson<int>(entryId),
-      'filePath': serializer.toJson<String>(filePath),
+      'data': serializer.toJson<Uint8List>(data),
+      'mimeType': serializer.toJson<String>(mimeType),
       'type': serializer.toJson<int>($MediaTable.$convertertype.toJson(type)),
       'sortOrder': serializer.toJson<int>(sortOrder),
     };
@@ -1013,13 +1041,15 @@ class MediaData extends DataClass implements Insertable<MediaData> {
   MediaData copyWith({
     int? id,
     int? entryId,
-    String? filePath,
+    Uint8List? data,
+    String? mimeType,
     MediaType? type,
     int? sortOrder,
   }) => MediaData(
     id: id ?? this.id,
     entryId: entryId ?? this.entryId,
-    filePath: filePath ?? this.filePath,
+    data: data ?? this.data,
+    mimeType: mimeType ?? this.mimeType,
     type: type ?? this.type,
     sortOrder: sortOrder ?? this.sortOrder,
   );
@@ -1027,7 +1057,8 @@ class MediaData extends DataClass implements Insertable<MediaData> {
     return MediaData(
       id: data.id.present ? data.id.value : this.id,
       entryId: data.entryId.present ? data.entryId.value : this.entryId,
-      filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      data: data.data.present ? data.data.value : this.data,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
       type: data.type.present ? data.type.value : this.type,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
@@ -1038,7 +1069,8 @@ class MediaData extends DataClass implements Insertable<MediaData> {
     return (StringBuffer('MediaData(')
           ..write('id: $id, ')
           ..write('entryId: $entryId, ')
-          ..write('filePath: $filePath, ')
+          ..write('data: $data, ')
+          ..write('mimeType: $mimeType, ')
           ..write('type: $type, ')
           ..write('sortOrder: $sortOrder')
           ..write(')'))
@@ -1046,14 +1078,22 @@ class MediaData extends DataClass implements Insertable<MediaData> {
   }
 
   @override
-  int get hashCode => Object.hash(id, entryId, filePath, type, sortOrder);
+  int get hashCode => Object.hash(
+    id,
+    entryId,
+    $driftBlobEquality.hash(data),
+    mimeType,
+    type,
+    sortOrder,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is MediaData &&
           other.id == this.id &&
           other.entryId == this.entryId &&
-          other.filePath == this.filePath &&
+          $driftBlobEquality.equals(other.data, this.data) &&
+          other.mimeType == this.mimeType &&
           other.type == this.type &&
           other.sortOrder == this.sortOrder);
 }
@@ -1061,36 +1101,42 @@ class MediaData extends DataClass implements Insertable<MediaData> {
 class MediaCompanion extends UpdateCompanion<MediaData> {
   final Value<int> id;
   final Value<int> entryId;
-  final Value<String> filePath;
+  final Value<Uint8List> data;
+  final Value<String> mimeType;
   final Value<MediaType> type;
   final Value<int> sortOrder;
   const MediaCompanion({
     this.id = const Value.absent(),
     this.entryId = const Value.absent(),
-    this.filePath = const Value.absent(),
+    this.data = const Value.absent(),
+    this.mimeType = const Value.absent(),
     this.type = const Value.absent(),
     this.sortOrder = const Value.absent(),
   });
   MediaCompanion.insert({
     this.id = const Value.absent(),
     required int entryId,
-    required String filePath,
+    required Uint8List data,
+    required String mimeType,
     required MediaType type,
     this.sortOrder = const Value.absent(),
   }) : entryId = Value(entryId),
-       filePath = Value(filePath),
+       data = Value(data),
+       mimeType = Value(mimeType),
        type = Value(type);
   static Insertable<MediaData> custom({
     Expression<int>? id,
     Expression<int>? entryId,
-    Expression<String>? filePath,
+    Expression<Uint8List>? data,
+    Expression<String>? mimeType,
     Expression<int>? type,
     Expression<int>? sortOrder,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (entryId != null) 'entry_id': entryId,
-      if (filePath != null) 'file_path': filePath,
+      if (data != null) 'data': data,
+      if (mimeType != null) 'mime_type': mimeType,
       if (type != null) 'type': type,
       if (sortOrder != null) 'sort_order': sortOrder,
     });
@@ -1099,14 +1145,16 @@ class MediaCompanion extends UpdateCompanion<MediaData> {
   MediaCompanion copyWith({
     Value<int>? id,
     Value<int>? entryId,
-    Value<String>? filePath,
+    Value<Uint8List>? data,
+    Value<String>? mimeType,
     Value<MediaType>? type,
     Value<int>? sortOrder,
   }) {
     return MediaCompanion(
       id: id ?? this.id,
       entryId: entryId ?? this.entryId,
-      filePath: filePath ?? this.filePath,
+      data: data ?? this.data,
+      mimeType: mimeType ?? this.mimeType,
       type: type ?? this.type,
       sortOrder: sortOrder ?? this.sortOrder,
     );
@@ -1121,8 +1169,11 @@ class MediaCompanion extends UpdateCompanion<MediaData> {
     if (entryId.present) {
       map['entry_id'] = Variable<int>(entryId.value);
     }
-    if (filePath.present) {
-      map['file_path'] = Variable<String>(filePath.value);
+    if (data.present) {
+      map['data'] = Variable<Uint8List>(data.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
     }
     if (type.present) {
       map['type'] = Variable<int>($MediaTable.$convertertype.toSql(type.value));
@@ -1138,7 +1189,8 @@ class MediaCompanion extends UpdateCompanion<MediaData> {
     return (StringBuffer('MediaCompanion(')
           ..write('id: $id, ')
           ..write('entryId: $entryId, ')
-          ..write('filePath: $filePath, ')
+          ..write('data: $data, ')
+          ..write('mimeType: $mimeType, ')
           ..write('type: $type, ')
           ..write('sortOrder: $sortOrder')
           ..write(')'))
@@ -2156,14 +2208,16 @@ typedef $$EntryTagsTableProcessedTableManager =
 typedef $$MediaTableCreateCompanionBuilder = MediaCompanion Function({
   Value<int> id,
   required int entryId,
-  required String filePath,
+  required Uint8List data,
+  required String mimeType,
   required MediaType type,
   Value<int> sortOrder,
 });
 typedef $$MediaTableUpdateCompanionBuilder = MediaCompanion Function({
   Value<int> id,
   Value<int> entryId,
-  Value<String> filePath,
+  Value<Uint8List> data,
+  Value<String> mimeType,
   Value<MediaType> type,
   Value<int> sortOrder,
 });
@@ -2203,8 +2257,13 @@ class $$MediaTableFilterComposer extends Composer<_$AppDatabase, $MediaTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get filePath => $composableBuilder(
-    column: $table.filePath,
+  ColumnFilters<Uint8List> get data => $composableBuilder(
+    column: $table.data,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2257,8 +2316,13 @@ class $$MediaTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get filePath => $composableBuilder(
-    column: $table.filePath,
+  ColumnOrderings<Uint8List> get data => $composableBuilder(
+    column: $table.data,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -2308,8 +2372,11 @@ class $$MediaTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get filePath =>
-      $composableBuilder(column: $table.filePath, builder: (column) => column);
+  GeneratedColumn<Uint8List> get data =>
+      $composableBuilder(column: $table.data, builder: (column) => column);
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<MediaType, int> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
@@ -2371,13 +2438,15 @@ class $$MediaTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<int> entryId = const Value.absent(),
-                Value<String> filePath = const Value.absent(),
+                Value<Uint8List> data = const Value.absent(),
+                Value<String> mimeType = const Value.absent(),
                 Value<MediaType> type = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
               }) => MediaCompanion(
                 id: id,
                 entryId: entryId,
-                filePath: filePath,
+                data: data,
+                mimeType: mimeType,
                 type: type,
                 sortOrder: sortOrder,
               ),
@@ -2385,13 +2454,15 @@ class $$MediaTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required int entryId,
-                required String filePath,
+                required Uint8List data,
+                required String mimeType,
                 required MediaType type,
                 Value<int> sortOrder = const Value.absent(),
               }) => MediaCompanion.insert(
                 id: id,
                 entryId: entryId,
-                filePath: filePath,
+                data: data,
+                mimeType: mimeType,
                 type: type,
                 sortOrder: sortOrder,
               ),
