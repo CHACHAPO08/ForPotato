@@ -1,6 +1,7 @@
-# diary_app
+# ForPotato
+reminescence
 
-Personal diary app
+A personal diary app built with Flutter (`diary_app`). See [diary-app-spec.md](diary-app-spec.md) for the full spec.
 
 ## Getting Started
 
