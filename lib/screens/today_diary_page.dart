@@ -20,6 +20,8 @@ class _PickedMedia {
   final MediaType type;
 }
 
+enum _Mode { loading, empty, viewing, editing }
+
 class TodayDiaryPage extends ConsumerStatefulWidget {
   const TodayDiaryPage({super.key, this.date});
 
@@ -35,35 +37,36 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
   late final DateTime _targetDate = widget.date ?? DateTime.now();
   final _contentController = TextEditingController();
   final _picker = ImagePicker();
-  final List<_PickedMedia> _pickedMedia = [];
-  int? _existingEntryId;
-  bool _loading = true;
+  List<_PickedMedia> _pickedMedia = [];
+  EntryWithMedia? _existingEntry;
+  _Mode _mode = _Mode.loading;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _loadExisting();
+    _load();
   }
 
-  Future<void> _loadExisting() async {
+  Future<void> _load() async {
     final db = ref.read(databaseProvider);
     final existing = await db.entryForDate(_targetDate);
     if (!mounted) return;
-    if (existing != null) {
-      _existingEntryId = existing.entry.id;
-      _contentController.text = existing.entry.content;
-      _pickedMedia.addAll(
-        existing.media.map(
-          (m) => _PickedMedia(
-            bytes: m.data,
-            mimeType: m.mimeType,
-            type: m.type,
-          ),
-        ),
-      );
-    }
-    setState(() => _loading = false);
+    setState(() {
+      _existingEntry = existing;
+      _mode = existing != null ? _Mode.viewing : _Mode.empty;
+    });
+  }
+
+  void _startEditing() {
+    final existing = _existingEntry;
+    _contentController.text = existing?.entry.content ?? '';
+    _pickedMedia = [
+      if (existing != null)
+        for (final m in existing.media)
+          _PickedMedia(bytes: m.data, mimeType: m.mimeType, type: m.type),
+    ];
+    setState(() => _mode = _Mode.editing);
   }
 
   @override
@@ -113,8 +116,8 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
     setState(() => _saving = true);
     final db = ref.read(databaseProvider);
     try {
-      final entryId = await db.upsertEntry(
-        existingId: _existingEntryId,
+      await db.upsertEntry(
+        existingId: _existingEntry?.entry.id,
         date: _targetDate,
         content: _contentController.text.trim(),
         mediaRows: [
@@ -127,9 +130,13 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
             ),
         ],
       );
-      _existingEntryId = entryId;
 
+      final refreshed = await db.entryForDate(_targetDate);
       if (!mounted) return;
+      setState(() {
+        _existingEntry = refreshed;
+        _mode = _Mode.viewing;
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('저장했습니다')));
@@ -138,22 +145,134 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
     }
   }
 
+  Future<void> _delete() async {
+    final entry = _existingEntry;
+    if (entry == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('삭제하시겠습니까?'),
+        content: const Text('삭제한 글은 되돌릴 수 없습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final db = ref.read(databaseProvider);
+    await db.deleteEntry(entry.entry.id);
+    if (!mounted) return;
+    setState(() {
+      _existingEntry = null;
+      _mode = _Mode.empty;
+    });
+  }
+
+  String get _title {
+    final isToday = widget.date == null;
+    return isToday ? 'Today' : DateFormat('yyyy.MM.dd').format(_targetDate);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isToday = widget.date == null;
-    final title = isToday
-        ? 'Today'
-        : DateFormat('yyyy.MM.dd').format(_targetDate);
-
-    if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: Text(title)),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+    switch (_mode) {
+      case _Mode.loading:
+        return Scaffold(
+          appBar: AppBar(title: Text(_title)),
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      case _Mode.empty:
+        return Scaffold(
+          appBar: AppBar(title: Text(_title)),
+          body: const Center(child: Text('아직 작성한 글이 없습니다')),
+          floatingActionButton: FloatingActionButton(
+            onPressed: _startEditing,
+            child: const Icon(Icons.add),
+          ),
+        );
+      case _Mode.viewing:
+        return _buildViewing(context);
+      case _Mode.editing:
+        return _buildEditing(context);
     }
+  }
 
+  Widget _buildViewing(BuildContext context) {
+    final entry = _existingEntry!;
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(_title),
+        actions: [
+          IconButton(
+            onPressed: _startEditing,
+            icon: const Icon(Icons.edit),
+            tooltip: '수정',
+          ),
+          IconButton(
+            onPressed: _delete,
+            icon: const Icon(Icons.delete_outline),
+            tooltip: '삭제',
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (entry.entry.content.isNotEmpty) Text(entry.entry.content),
+            if (entry.media.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final media in entry.media)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: media.type == MediaType.photo
+                          ? Image.memory(
+                              media.data,
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(
+                              width: 120,
+                              height: 120,
+                              color: Colors.black12,
+                              child: const Icon(Icons.videocam, size: 32),
+                            ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditing(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_title),
+        leading: IconButton(
+          onPressed: () => setState(
+            () => _mode = _existingEntry != null ? _Mode.viewing : _Mode.empty,
+          ),
+          icon: const Icon(Icons.close),
+          tooltip: '취소',
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),

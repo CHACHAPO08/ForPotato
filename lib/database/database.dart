@@ -119,6 +119,14 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<void> deleteEntry(int id) async {
+    await transaction(() async {
+      await (delete(media)..where((m) => m.entryId.equals(id))).go();
+      await (delete(entryTags)..where((t) => t.entryId.equals(id))).go();
+      await (delete(diaryEntries)..where((t) => t.id.equals(id))).go();
+    });
+  }
+
   Stream<List<EntryWithMedia>> watchEntriesWithMedia() {
     final entriesQuery = select(diaryEntries)
       ..orderBy([(t) => OrderingTerm.desc(t.date)]);
