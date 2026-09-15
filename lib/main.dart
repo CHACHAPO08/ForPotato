@@ -10,6 +10,26 @@ void main() {
   runApp(const ProviderScope(child: DiaryApp()));
 }
 
+/// Flutter Web draws every frame by repainting a canvas, so the default
+/// slide/fade page-route animations (which redraw the whole screen on every
+/// frame of the transition) tend to feel rougher on Safari than a browser's
+/// native, GPU-composited CSS transitions. Cutting instantly instead of
+/// animating removes that roughness entirely.
+class _NoTransitionsBuilder extends PageTransitionsBuilder {
+  const _NoTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
+  }
+}
+
 class DiaryApp extends StatelessWidget {
   const DiaryApp({super.key});
 
@@ -20,6 +40,16 @@ class DiaryApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: _NoTransitionsBuilder(),
+            TargetPlatform.iOS: _NoTransitionsBuilder(),
+            TargetPlatform.linux: _NoTransitionsBuilder(),
+            TargetPlatform.macOS: _NoTransitionsBuilder(),
+            TargetPlatform.windows: _NoTransitionsBuilder(),
+            TargetPlatform.fuchsia: _NoTransitionsBuilder(),
+          },
+        ),
       ),
       home: const HomeShell(),
     );
