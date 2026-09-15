@@ -127,6 +127,21 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               maxLines: 5,
               overflow: TextOverflow.ellipsis,
             ),
+          if (entry.tags.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final tag in entry.tags)
+                  Chip(
+                    label: Text('#$tag'),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+              ],
+            ),
+          ],
           if (entry.media.isNotEmpty) ...[
             const SizedBox(height: 12),
             SizedBox(

@@ -37,8 +37,10 @@ class TodayDiaryPage extends ConsumerStatefulWidget {
 class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
   late final DateTime _targetDate = widget.date ?? DateTime.now();
   final _contentController = TextEditingController();
+  final _tagInputController = TextEditingController();
   final _picker = ImagePicker();
   List<_PickedMedia> _pickedMedia = [];
+  List<String> _tags = [];
   EntryWithMedia? _existingEntry;
   _Mode _mode = _Mode.loading;
   bool _saving = false;
@@ -67,12 +69,21 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
         for (final m in existing.media)
           _PickedMedia(bytes: m.data, mimeType: m.mimeType, type: m.type),
     ];
+    _tags = [if (existing != null) ...existing.tags];
     setState(() => _mode = _Mode.editing);
+  }
+
+  void _addTag(String raw) {
+    final name = raw.trim();
+    _tagInputController.clear();
+    if (name.isEmpty || _tags.contains(name)) return;
+    setState(() => _tags.add(name));
   }
 
   @override
   void dispose() {
     _contentController.dispose();
+    _tagInputController.dispose();
     super.dispose();
   }
 
@@ -133,6 +144,7 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
               type: m.type,
             ),
         ],
+        tagNames: _tags,
       );
 
       final refreshed = await db.entryForDate(_targetDate);
@@ -233,6 +245,17 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
           padding: const EdgeInsets.all(16),
           children: [
             if (entry.entry.content.isNotEmpty) Text(entry.entry.content),
+            if (entry.tags.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final tag in entry.tags)
+                    Chip(label: Text('#$tag')),
+                ],
+              ),
+            ],
             if (entry.media.isNotEmpty) ...[
               const SizedBox(height: 16),
               Wrap(
@@ -349,6 +372,31 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                   ),
                 ),
               ],
+              const SizedBox(height: 12),
+              if (_tags.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final tag in _tags)
+                      Chip(
+                        label: Text('#$tag'),
+                        onDeleted: () => setState(() => _tags.remove(tag)),
+                      ),
+                  ],
+                ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _tagInputController,
+                decoration: const InputDecoration(
+                  hintText: '태그 입력 후 Enter (예: 여행)',
+                  prefixIcon: Icon(Icons.tag),
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: _addTag,
+              ),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,

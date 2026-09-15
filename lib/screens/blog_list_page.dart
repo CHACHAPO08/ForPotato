@@ -61,6 +61,22 @@ class BlogListPage extends ConsumerWidget {
                   const SizedBox(height: 6),
                   if (item.entry.content.isNotEmpty)
                     Text(item.entry.content),
+                  if (item.tags.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final tag in item.tags)
+                          Chip(
+                            label: Text('#$tag'),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                      ],
+                    ),
+                  ],
                   if (item.media.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     SizedBox(
