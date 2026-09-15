@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../database/database.dart';
 import '../providers/database_provider.dart';
+import 'camera_capture_page.dart';
 
 class _PickedMedia {
   _PickedMedia({
@@ -90,19 +91,22 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
     });
   }
 
-  Future<void> _pickVideo() async {
-    final file = await _picker.pickVideo(
-      source: ImageSource.camera,
-      maxDuration: const Duration(seconds: 30),
+  /// Setlog/인스타그램 스토리 스타일의 독자적인 카메라 화면(CameraCapturePage)을 열어
+  /// 사진 또는 최대 10초 영상을 촬영하고, 그 결과를 첨부 목록에 추가한다.
+  Future<void> _openCamera() async {
+    final result = await Navigator.of(context).push<CameraCaptureResult>(
+      MaterialPageRoute(
+        builder: (_) => const CameraCapturePage(maxVideoSeconds: 10),
+        fullscreenDialog: true,
+      ),
     );
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
+    if (result == null) return;
     setState(() {
       _pickedMedia.add(
         _PickedMedia(
-          bytes: bytes,
-          mimeType: file.mimeType ?? 'video/mp4',
-          type: MediaType.video,
+          bytes: result.bytes,
+          mimeType: result.mimeType,
+          type: result.type,
         ),
       );
     });
@@ -350,19 +354,14 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   IconButton(
-                    onPressed: () => _pickPhoto(ImageSource.camera),
+                    onPressed: _openCamera,
                     icon: const Icon(Icons.camera_alt),
-                    tooltip: '사진 촬영',
+                    tooltip: '카메라로 촬영 (사진/최대 10초 영상)',
                   ),
                   IconButton(
                     onPressed: () => _pickPhoto(ImageSource.gallery),
                     icon: const Icon(Icons.photo_library),
                     tooltip: '앨범에서 선택',
-                  ),
-                  IconButton(
-                    onPressed: _pickVideo,
-                    icon: const Icon(Icons.videocam),
-                    tooltip: '짧은 동영상 촬영',
                   ),
                 ],
               ),
