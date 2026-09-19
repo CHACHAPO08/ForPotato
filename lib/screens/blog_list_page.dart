@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../database/database.dart';
 import '../main.dart' show CuteColors;
 import '../providers/database_provider.dart';
+import '../widgets/entry_preview_dialog.dart';
 
 final _entriesProvider = StreamProvider<List<EntryWithMedia>>((ref) {
   final db = ref.watch(databaseProvider);
@@ -59,78 +60,52 @@ class BlogListPage extends ConsumerWidget {
             itemBuilder: (context, index) {
               final item = entries[index];
               return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        dateFormat.format(item.entry.date),
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: CuteColors.textSecondary),
-                      ),
-                      const SizedBox(height: 6),
-                      if (item.entry.title.isNotEmpty)
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => showEntryPreviewDialog(context, ref, item),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          item.entry.title,
-                          style: Theme.of(context).textTheme.titleMedium,
+                          dateFormat.format(item.entry.date),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: CuteColors.textSecondary),
                         ),
-                      if (item.entry.content.isNotEmpty)
-                        Text(item.entry.content),
-                      if (item.tags.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            for (final tag in item.tags)
-                              Chip(
-                                label: Text('#$tag'),
-                                visualDensity: VisualDensity.compact,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
-                          ],
-                        ),
-                      ],
-                      if (item.media.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 90,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: item.media.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 8),
-                            itemBuilder: (context, mediaIndex) {
-                              final media = item.media[mediaIndex];
-                              return ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: media.type == MediaType.photo
-                                    ? Image.memory(
-                                        media.data,
-                                        width: 90,
-                                        height: 90,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Container(
-                                        width: 90,
-                                        height: 90,
-                                        color: CuteColors.accent.withValues(
-                                          alpha: 0.12,
+                        if (item.media.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final media in item.media)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: media.type == MediaType.photo
+                                      ? Image.memory(
+                                          media.data,
+                                          width: 90,
+                                          height: 90,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Container(
+                                          width: 90,
+                                          height: 90,
+                                          color: CuteColors.accent
+                                              .withValues(alpha: 0.12),
+                                          child: const Icon(
+                                            Icons.videocam,
+                                            size: 32,
+                                            color: CuteColors.accent,
+                                          ),
                                         ),
-                                        child: const Icon(
-                                          Icons.videocam,
-                                          size: 32,
-                                          color: CuteColors.accent,
-                                        ),
-                                      ),
-                              );
-                            },
+                                ),
+                            ],
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               );
