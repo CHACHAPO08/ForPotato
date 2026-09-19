@@ -6,8 +6,24 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../database/database.dart';
+import '../main.dart';
 import '../providers/database_provider.dart';
 import 'camera_capture_page.dart';
+
+class _MoodOption {
+  const _MoodOption(this.label, this.color);
+
+  final String label;
+  final Color color;
+}
+
+const _moodOptions = [
+  _MoodOption('최고', AppColors.moodBest),
+  _MoodOption('좋음', AppColors.moodGood),
+  _MoodOption('보통', AppColors.moodNeutral),
+  _MoodOption('별로', AppColors.moodMeh),
+  _MoodOption('힘듦', AppColors.moodBad),
+];
 
 class _PickedMedia {
   _PickedMedia({
@@ -41,6 +57,9 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
   final _picker = ImagePicker();
   List<_PickedMedia> _pickedMedia = [];
   List<String> _tags = [];
+  // Local-only UI state for now: the DB `mood` column exists but wiring it
+  // into upsertEntry/persistence is out of scope for this design pass.
+  String? _selectedMood;
   EntryWithMedia? _existingEntry;
   _Mode _mode = _Mode.loading;
   bool _saving = false;
@@ -70,6 +89,7 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
           _PickedMedia(bytes: m.data, mimeType: m.mimeType, type: m.type),
     ];
     _tags = [if (existing != null) ...existing.tags];
+    _selectedMood = null;
     setState(() => _mode = _Mode.editing);
   }
 
@@ -153,9 +173,8 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
         _existingEntry = refreshed;
         _mode = _Mode.viewing;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('저장했습니다')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('저장했습니다')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -251,8 +270,7 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  for (final tag in entry.tags)
-                    Chip(label: Text('#$tag')),
+                  for (final tag in entry.tags) Chip(label: Text('#$tag')),
                 ],
               ),
             ],
@@ -288,6 +306,28 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
     );
   }
 
+  Widget _buildMoodPicker(BuildContext context) {
+    return Row(
+      children: [
+        for (final option in _moodOptions)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: _MoodButton(
+                option: option,
+                selected: _selectedMood == option.label,
+                onTap: () => setState(
+                  () => _selectedMood = _selectedMood == option.label
+                      ? null
+                      : option.label,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildEditing(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -306,16 +346,15 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _buildMoodPicker(context),
+              const SizedBox(height: 12),
               Expanded(
                 child: TextField(
                   controller: _contentController,
                   maxLines: null,
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
-                  decoration: const InputDecoration(
-                    hintText: '오늘 하루는 어땠나요?',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(hintText: '오늘 하루는 어땠나요?'),
                 ),
               ),
               if (_pickedMedia.isNotEmpty) ...[
@@ -343,10 +382,7 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                                     width: 80,
                                     height: 80,
                                     color: Colors.black12,
-                                    child: const Icon(
-                                      Icons.videocam,
-                                      size: 32,
-                                    ),
+                                    child: const Icon(Icons.videocam, size: 32),
                                   ),
                           ),
                           Positioned(
@@ -392,7 +428,6 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                   hintText: '태그 입력 후 Enter (예: 여행)',
                   prefixIcon: Icon(Icons.tag),
                   isDense: true,
-                  border: OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.done,
                 onSubmitted: _addTag,
@@ -426,6 +461,64 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.check),
+      ),
+    );
+  }
+}
+
+/// A small, flat, bordered mood square. Selection is shown with a filled
+/// tint of the mood color plus a matching border, never a shadow or scale
+/// bounce, to stay consistent with the minimal aesthetic.
+class _MoodButton extends StatelessWidget {
+  const _MoodButton({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _MoodOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? option.color.withValues(alpha: 0.14)
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? option.color : AppColors.border,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: option.color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              option.label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

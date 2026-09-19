@@ -26,12 +26,10 @@ class BlogListPage extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: TextField(
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: '키워드 검색',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                prefixIcon: Icon(Icons.search),
+                isDense: true,
               ),
             ),
           ),
@@ -59,8 +57,7 @@ class BlogListPage extends ConsumerWidget {
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
                   const SizedBox(height: 6),
-                  if (item.entry.content.isNotEmpty)
-                    Text(item.entry.content),
+                  if (item.entry.content.isNotEmpty) Text(item.entry.content),
                   if (item.tags.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Wrap(
@@ -100,10 +97,7 @@ class BlogListPage extends ConsumerWidget {
                                     width: 90,
                                     height: 90,
                                     color: Colors.black12,
-                                    child: const Icon(
-                                      Icons.videocam,
-                                      size: 32,
-                                    ),
+                                    child: const Icon(Icons.videocam, size: 32),
                                   ),
                           );
                         },
