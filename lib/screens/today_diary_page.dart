@@ -2,12 +2,32 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../database/database.dart';
+import '../main.dart' show CuteColors;
 import '../providers/database_provider.dart';
 import 'camera_capture_page.dart';
+
+/// One selectable option in the mood picker row. Display-only for now — see
+/// `_TodayDiaryPageState._selectedMood` for why this isn't persisted yet.
+class _MoodOption {
+  const _MoodOption(this.label, this.emoji, this.color);
+
+  final String label;
+  final String emoji;
+  final Color color;
+}
+
+const _moodOptions = [
+  _MoodOption('최고', '🤩', CuteColors.moodBest),
+  _MoodOption('좋음', '🙂', CuteColors.moodGood),
+  _MoodOption('보통', '😐', CuteColors.moodOkay),
+  _MoodOption('별로', '😕', CuteColors.moodMeh),
+  _MoodOption('힘듦', '😢', CuteColors.moodBad),
+];
 
 class _PickedMedia {
   _PickedMedia({
@@ -41,6 +61,13 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
   final _picker = ImagePicker();
   List<_PickedMedia> _pickedMedia = [];
   List<String> _tags = [];
+
+  /// Locally-selected mood for the entry being edited. This is a purely
+  /// visual/UI addition for the cute design pass — the `mood` column on
+  /// `DiaryEntries` exists but wiring persistence up is out of scope here,
+  /// so this state resets on every `_startEditing()` call and is never
+  /// sent to `upsertEntry`.
+  String? _selectedMood;
   EntryWithMedia? _existingEntry;
   _Mode _mode = _Mode.loading;
   bool _saving = false;
@@ -70,6 +97,7 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
           _PickedMedia(bytes: m.data, mimeType: m.mimeType, type: m.type),
     ];
     _tags = [if (existing != null) ...existing.tags];
+    _selectedMood = null;
     setState(() => _mode = _Mode.editing);
   }
 
@@ -230,12 +258,12 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
         actions: [
           IconButton(
             onPressed: _startEditing,
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit, color: CuteColors.accent),
             tooltip: '수정',
           ),
           IconButton(
             onPressed: _delete,
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(Icons.delete_outline, color: CuteColors.accent),
             tooltip: '삭제',
           ),
         ],
@@ -244,18 +272,29 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (entry.entry.content.isNotEmpty) Text(entry.entry.content),
-            if (entry.tags.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final tag in entry.tags)
-                    Chip(label: Text('#$tag')),
-                ],
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (entry.entry.content.isNotEmpty)
+                      Text(entry.entry.content),
+                    if (entry.tags.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final tag in entry.tags)
+                            Chip(label: Text('#$tag')),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ],
+            ),
             if (entry.media.isNotEmpty) ...[
               const SizedBox(height: 16),
               Wrap(
@@ -264,7 +303,7 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                 children: [
                   for (final media in entry.media)
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(16),
                       child: media.type == MediaType.photo
                           ? Image.memory(
                               media.data,
@@ -275,8 +314,12 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                           : Container(
                               width: 120,
                               height: 120,
-                              color: Colors.black12,
-                              child: const Icon(Icons.videocam, size: 32),
+                              color: CuteColors.accent.withValues(alpha: 0.12),
+                              child: const Icon(
+                                Icons.videocam,
+                                size: 32,
+                                color: CuteColors.accent,
+                              ),
                             ),
                     ),
                 ],
@@ -306,6 +349,8 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _buildMoodPicker(context),
+              const SizedBox(height: 12),
               Expanded(
                 child: TextField(
                   controller: _contentController,
@@ -314,7 +359,6 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                   textAlignVertical: TextAlignVertical.top,
                   decoration: const InputDecoration(
                     hintText: '오늘 하루는 어땠나요?',
-                    border: OutlineInputBorder(),
                   ),
                 ),
               ),
@@ -331,7 +375,7 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                       return Stack(
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(16),
                             child: media.type == MediaType.photo
                                 ? Image.memory(
                                     media.bytes,
@@ -342,10 +386,13 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                                 : Container(
                                     width: 80,
                                     height: 80,
-                                    color: Colors.black12,
+                                    color: CuteColors.accent.withValues(
+                                      alpha: 0.12,
+                                    ),
                                     child: const Icon(
                                       Icons.videocam,
                                       size: 32,
+                                      color: CuteColors.accent,
                                     ),
                                   ),
                           ),
@@ -357,7 +404,7 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                                   setState(() => _pickedMedia.removeAt(index)),
                               child: const CircleAvatar(
                                 radius: 10,
-                                backgroundColor: Colors.black54,
+                                backgroundColor: CuteColors.textMain,
                                 child: Icon(
                                   Icons.close,
                                   size: 12,
@@ -390,9 +437,8 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                 controller: _tagInputController,
                 decoration: const InputDecoration(
                   hintText: '태그 입력 후 Enter (예: 여행)',
-                  prefixIcon: Icon(Icons.tag),
+                  prefixIcon: Icon(Icons.tag, color: CuteColors.accent),
                   isDense: true,
-                  border: OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.done,
                 onSubmitted: _addTag,
@@ -401,15 +447,17 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  IconButton(
-                    onPressed: _openCamera,
-                    icon: const Icon(Icons.camera_alt),
+                  _MediaActionButton(
+                    icon: Icons.camera_alt,
+                    label: '카메라',
                     tooltip: '카메라로 촬영 (사진/최대 10초 영상)',
+                    onPressed: _openCamera,
                   ),
-                  IconButton(
-                    onPressed: () => _pickPhoto(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library),
+                  _MediaActionButton(
+                    icon: Icons.photo_library,
+                    label: '앨범',
                     tooltip: '앨범에서 선택',
+                    onPressed: () => _pickPhoto(ImageSource.gallery),
                   ),
                 ],
               ),
@@ -423,9 +471,135 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
             ? const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
             : const Icon(Icons.check),
+      ),
+    );
+  }
+
+  /// Row of 5 selectable mood buttons (최고/좋음/보통/별로/힘듦). Purely local
+  /// UI state for now — see the `_selectedMood` field doc comment.
+  Widget _buildMoodPicker(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      children: [
+        for (final option in _moodOptions)
+          _MoodChoice(
+            option: option,
+            selected: _selectedMood == option.label,
+            onTap: () => setState(() {
+              _selectedMood = _selectedMood == option.label
+                  ? null
+                  : option.label;
+            }),
+          ),
+      ],
+    );
+  }
+}
+
+class _MoodChoice extends StatelessWidget {
+  const _MoodChoice({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _MoodOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? option.color : option.color.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? option.color : Colors.transparent,
+            width: 2,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: option.color.withValues(alpha: 0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(option.emoji, style: const TextStyle(fontSize: 22)),
+            const SizedBox(height: 2),
+            Text(
+              option.label,
+              style: GoogleFonts.gowunDodum(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+                color: CuteColors.textMain,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaActionButton extends StatelessWidget {
+  const _MediaActionButton({
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          decoration: BoxDecoration(
+            color: CuteColors.accent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: CuteColors.accent, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.gowunDodum(
+                  color: CuteColors.accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

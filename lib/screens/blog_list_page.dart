@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../database/database.dart';
+import '../main.dart' show CuteColors;
 import '../providers/database_provider.dart';
 
 final _entriesProvider = StreamProvider<List<EntryWithMedia>>((ref) {
@@ -28,10 +29,16 @@ class BlogListPage extends ConsumerWidget {
             child: TextField(
               decoration: InputDecoration(
                 hintText: '키워드 검색',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: CuteColors.accent,
                 ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: CuteColors.accent.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -48,69 +55,79 @@ class BlogListPage extends ConsumerWidget {
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: entries.length,
-            separatorBuilder: (_, _) => const Divider(height: 32),
+            separatorBuilder: (_, _) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
               final item = entries[index];
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    dateFormat.format(item.entry.date),
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  if (item.entry.content.isNotEmpty)
-                    Text(item.entry.content),
-                  if (item.tags.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final tag in item.tags)
-                          Chip(
-                            label: Text('#$tag'),
-                            visualDensity: VisualDensity.compact,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          ),
-                      ],
-                    ),
-                  ],
-                  if (item.media.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 90,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: item.media.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, mediaIndex) {
-                          final media = item.media[mediaIndex];
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: media.type == MediaType.photo
-                                ? Image.memory(
-                                    media.data,
-                                    width: 90,
-                                    height: 90,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    width: 90,
-                                    height: 90,
-                                    color: Colors.black12,
-                                    child: const Icon(
-                                      Icons.videocam,
-                                      size: 32,
-                                    ),
-                                  ),
-                          );
-                        },
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        dateFormat.format(item.entry.date),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: CuteColors.textSecondary),
                       ),
-                    ),
-                  ],
-                ],
+                      const SizedBox(height: 6),
+                      if (item.entry.content.isNotEmpty)
+                        Text(item.entry.content),
+                      if (item.tags.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final tag in item.tags)
+                              Chip(
+                                label: Text('#$tag'),
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                          ],
+                        ),
+                      ],
+                      if (item.media.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 90,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: item.media.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 8),
+                            itemBuilder: (context, mediaIndex) {
+                              final media = item.media[mediaIndex];
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: media.type == MediaType.photo
+                                    ? Image.memory(
+                                        media.data,
+                                        width: 90,
+                                        height: 90,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Container(
+                                        width: 90,
+                                        height: 90,
+                                        color: CuteColors.accent.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        child: const Icon(
+                                          Icons.videocam,
+                                          size: 32,
+                                          color: CuteColors.accent,
+                                        ),
+                                      ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               );
             },
           );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../database/database.dart';
+import '../main.dart' show CuteColors;
 import '../providers/database_provider.dart';
 import 'today_diary_page.dart';
 
@@ -31,19 +32,63 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Calendar')),
-      body: TableCalendar(
-        firstDay: DateTime.utc(2020, 1, 1),
-        lastDay: DateTime.utc(2100, 12, 31),
-        focusedDay: _focusedDay,
-        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-        eventLoader: (day) => hasEntry(day) ? const [1] : const [],
-        onDaySelected: (selectedDay, focusedDay) {
-          setState(() {
-            _selectedDay = selectedDay;
-            _focusedDay = focusedDay;
-          });
-          _showEntryPreview(selectedDay);
-        },
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            child: TableCalendar(
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2100, 12, 31),
+              focusedDay: _focusedDay,
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              eventLoader: (day) => hasEntry(day) ? const [1] : const [],
+              onDaySelected: (selectedDay, focusedDay) {
+                setState(() {
+                  _selectedDay = selectedDay;
+                  _focusedDay = focusedDay;
+                });
+                _showEntryPreview(selectedDay);
+              },
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                titleTextStyle: TextStyle(
+                  color: CuteColors.textMain,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+                leftChevronIcon: Icon(
+                  Icons.chevron_left,
+                  color: CuteColors.accent,
+                ),
+                rightChevronIcon: Icon(
+                  Icons.chevron_right,
+                  color: CuteColors.accent,
+                ),
+              ),
+              calendarStyle: CalendarStyle(
+                outsideDaysVisible: false,
+                defaultTextStyle: const TextStyle(color: CuteColors.textMain),
+                weekendTextStyle: const TextStyle(color: CuteColors.textMain),
+                todayDecoration: BoxDecoration(
+                  color: CuteColors.accent.withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                ),
+                todayTextStyle: const TextStyle(color: CuteColors.textMain),
+                selectedDecoration: const BoxDecoration(
+                  color: CuteColors.accent,
+                  shape: BoxShape.circle,
+                ),
+                markerDecoration: const BoxDecoration(
+                  color: CuteColors.moodGood,
+                  shape: BoxShape.circle,
+                ),
+                markersAlignment: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -62,8 +107,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: CuteColors.cardBackground,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         return FutureBuilder<EntryWithMedia?>(
@@ -153,7 +199,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 itemBuilder: (context, index) {
                   final media = entry.media[index];
                   return ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(16),
                     child: media.type == MediaType.photo
                         ? Image.memory(
                             media.data,
@@ -164,8 +210,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                         : Container(
                             width: 80,
                             height: 80,
-                            color: Colors.black12,
-                            child: const Icon(Icons.videocam, size: 32),
+                            color: CuteColors.accent.withValues(alpha: 0.12),
+                            child: const Icon(
+                              Icons.videocam,
+                              size: 32,
+                              color: CuteColors.accent,
+                            ),
                           ),
                   );
                 },
