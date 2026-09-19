@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../database/database.dart';
 import '../providers/database_provider.dart';
+import '../theme/analog_theme.dart';
 import 'camera_capture_page.dart';
 
 class _PickedMedia {
@@ -45,6 +46,10 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
   _Mode _mode = _Mode.loading;
   bool _saving = false;
 
+  /// Mood selected in the editor. Local UI state only - not yet persisted to
+  /// the database (the `mood` column exists but isn't wired up).
+  String? _selectedMood;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +75,7 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
           _PickedMedia(bytes: m.data, mimeType: m.mimeType, type: m.type),
     ];
     _tags = [if (existing != null) ...existing.tags];
+    _selectedMood = null;
     setState(() => _mode = _Mode.editing);
   }
 
@@ -153,9 +159,8 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
         _existingEntry = refreshed;
         _mode = _Mode.viewing;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('저장했습니다')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('저장했습니다')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -244,15 +249,20 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (entry.entry.content.isNotEmpty) Text(entry.entry.content),
+            if (entry.entry.content.isNotEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(entry.entry.content),
+                ),
+              ),
             if (entry.tags.isNotEmpty) ...[
               const SizedBox(height: 12),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  for (final tag in entry.tags)
-                    Chip(label: Text('#$tag')),
+                  for (final tag in entry.tags) Chip(label: Text('#$tag')),
                 ],
               ),
             ],
@@ -260,11 +270,12 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
-                runSpacing: 8,
+                runSpacing: 12,
                 children: [
-                  for (final media in entry.media)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                  for (final (index, media) in entry.media.indexed)
+                    PolaroidThumbnail(
+                      size: 120,
+                      index: index,
                       child: media.type == MediaType.photo
                           ? Image.memory(
                               media.data,
@@ -321,17 +332,19 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
               if (_pickedMedia.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 80,
+                  height: 96,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _pickedMedia.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
                     itemBuilder: (context, index) {
                       final media = _pickedMedia[index];
                       return Stack(
+                        clipBehavior: Clip.none,
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
+                          PolaroidThumbnail(
+                            size: 80,
+                            index: index,
                             child: media.type == MediaType.photo
                                 ? Image.memory(
                                     media.bytes,
@@ -343,21 +356,18 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                                     width: 80,
                                     height: 80,
                                     color: Colors.black12,
-                                    child: const Icon(
-                                      Icons.videocam,
-                                      size: 32,
-                                    ),
+                                    child: const Icon(Icons.videocam, size: 32),
                                   ),
                           ),
                           Positioned(
-                            top: 0,
-                            right: 0,
+                            top: -4,
+                            right: -4,
                             child: GestureDetector(
                               onTap: () =>
                                   setState(() => _pickedMedia.removeAt(index)),
                               child: const CircleAvatar(
                                 radius: 10,
-                                backgroundColor: Colors.black54,
+                                backgroundColor: AnalogColors.textPrimary,
                                 child: Icon(
                                   Icons.close,
                                   size: 12,
@@ -372,6 +382,8 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                   ),
                 ),
               ],
+              const SizedBox(height: 12),
+              _buildMoodPicker(),
               const SizedBox(height: 12),
               if (_tags.isNotEmpty)
                 Wrap(
@@ -426,6 +438,93 @@ class _TodayDiaryPageState extends ConsumerState<TodayDiaryPage> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.check),
+      ),
+    );
+  }
+
+  /// Row of 5 mood "stamps" (최고/좋음/보통/별로/힘듦). Local widget state only
+  /// - see [_selectedMood]; not persisted to the database yet.
+  Widget _buildMoodPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('오늘의 기분', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (final mood in kMoodOptions)
+              _MoodStamp(
+                mood: mood,
+                selected: _selectedMood == mood.label,
+                onTap: () => setState(
+                  () => _selectedMood = _selectedMood == mood.label
+                      ? null
+                      : mood.label,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// A small square "paper stamp" style mood swatch used by the mood picker.
+class _MoodStamp extends StatelessWidget {
+  const _MoodStamp({
+    required this.mood,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final MoodOption mood;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: mood.color,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: selected ? AnalogColors.accent : Colors.transparent,
+                width: 3,
+              ),
+              boxShadow: selected
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: selected
+                ? const Icon(Icons.check, color: Colors.white, size: 20)
+                : null,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            mood.label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: selected
+                  ? AnalogColors.accent
+                  : AnalogColors.textSecondary,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }

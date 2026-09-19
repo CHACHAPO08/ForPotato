@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../database/database.dart';
 import '../providers/database_provider.dart';
+import '../theme/analog_theme.dart';
 import 'today_diary_page.dart';
 
 final _entryDatesProvider = StreamProvider<Set<DateTime>>((ref) {
@@ -31,27 +32,68 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Calendar')),
-      body: TableCalendar(
-        firstDay: DateTime.utc(2020, 1, 1),
-        lastDay: DateTime.utc(2100, 12, 31),
-        focusedDay: _focusedDay,
-        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-        eventLoader: (day) => hasEntry(day) ? const [1] : const [],
-        onDaySelected: (selectedDay, focusedDay) {
-          setState(() {
-            _selectedDay = selectedDay;
-            _focusedDay = focusedDay;
-          });
-          _showEntryPreview(selectedDay);
-        },
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: TableCalendar(
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2100, 12, 31),
+              focusedDay: _focusedDay,
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              eventLoader: (day) => hasEntry(day) ? const [1] : const [],
+              onDaySelected: (selectedDay, focusedDay) {
+                setState(() {
+                  _selectedDay = selectedDay;
+                  _focusedDay = focusedDay;
+                });
+                _showEntryPreview(selectedDay);
+              },
+              calendarStyle: const CalendarStyle(
+                outsideDaysVisible: false,
+                todayDecoration: BoxDecoration(
+                  color: AnalogColors.cardBorder,
+                  shape: BoxShape.circle,
+                ),
+                selectedDecoration: BoxDecoration(
+                  color: AnalogColors.accent,
+                  shape: BoxShape.circle,
+                ),
+                markerDecoration: BoxDecoration(
+                  color: AnalogColors.accent,
+                  shape: BoxShape.circle,
+                ),
+                weekendTextStyle: TextStyle(color: AnalogColors.textSecondary),
+                defaultTextStyle: TextStyle(color: AnalogColors.textPrimary),
+              ),
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                titleTextStyle: TextStyle(
+                  color: AnalogColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                ),
+                leftChevronIcon: Icon(
+                  Icons.chevron_left,
+                  color: AnalogColors.textPrimary,
+                ),
+                rightChevronIcon: Icon(
+                  Icons.chevron_right,
+                  color: AnalogColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
   void _openEditor(DateTime day) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => TodayDiaryPage(date: day)),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => TodayDiaryPage(date: day)));
   }
 
   Future<void> _showEntryPreview(DateTime day) async {
@@ -62,6 +104,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: AnalogColors.cardBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -103,7 +146,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(dateLabel, style: Theme.of(sheetContext).textTheme.titleMedium),
+            Text(
+              dateLabel,
+              style: Theme.of(sheetContext).textTheme.titleMedium,
+            ),
             const Expanded(child: Center(child: CircularProgressIndicator())),
           ],
         ),
@@ -145,15 +191,16 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           if (entry.media.isNotEmpty) ...[
             const SizedBox(height: 12),
             SizedBox(
-              height: 80,
+              height: 96,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: entry.media.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final media = entry.media[index];
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                  return PolaroidThumbnail(
+                    size: 80,
+                    index: index,
                     child: media.type == MediaType.photo
                         ? Image.memory(
                             media.data,

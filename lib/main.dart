@@ -5,6 +5,7 @@ import 'screens/blog_list_page.dart';
 import 'screens/calendar_page.dart';
 import 'screens/insights_page.dart';
 import 'screens/today_diary_page.dart';
+import 'theme/analog_theme.dart';
 
 void main() {
   runApp(const ProviderScope(child: DiaryApp()));
@@ -37,9 +38,7 @@ class DiaryApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Diary',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+      theme: buildAnalogTheme().copyWith(
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
             TargetPlatform.android: _NoTransitionsBuilder(),
@@ -88,14 +87,8 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.calendar_month),
             label: 'Calendar',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book),
-            label: 'Blog',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.insights),
-            label: 'Insights',
-          ),
+          NavigationDestination(icon: Icon(Icons.menu_book), label: 'Blog'),
+          NavigationDestination(icon: Icon(Icons.insights), label: 'Insights'),
         ],
       ),
     );
