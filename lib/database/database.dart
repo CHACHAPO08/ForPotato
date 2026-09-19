@@ -3,11 +3,17 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 part 'database.g.dart';
 
+/// Emoji options selectable as an entry's calendar-day marker. `null` means
+/// "not selected", in which case the calendar falls back to a plain circle.
+const List<String> markerEmojiOptions = ['❤️', '⭐', '⚪'];
+
 class DiaryEntries extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
+  TextColumn get title => text().withDefault(const Constant(''))();
   TextColumn get content => text()();
   TextColumn get mood => text().nullable()();
+  TextColumn get emoji => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }
@@ -62,12 +68,20 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
-  Stream<Set<DateTime>> watchEntryDates() {
-    return select(diaryEntries).watch().map(
-      (entries) => entries
-          .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
-          .toSet(),
-    );
+  /// For each date that has at least one entry, the calendar marker to show:
+  /// the most-recently-created entry's chosen emoji, or `null` to fall back
+  /// to a plain circle. Dates with no entries are simply absent from the map.
+  Stream<Map<DateTime, String?>> watchDayMarkers() {
+    final query = select(diaryEntries)
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
+    return query.watch().map((entries) {
+      final result = <DateTime, String?>{};
+      for (final entry in entries) {
+        final day = DateTime(entry.date.year, entry.date.month, entry.date.day);
+        result.putIfAbsent(day, () => entry.emoji);
+      }
+      return result;
+    });
   }
 
   Future<List<String>> _tagsForEntry(int entryId) async {
@@ -78,26 +92,44 @@ class AppDatabase extends _$AppDatabase {
     return rows.map((row) => row.readTable(tags).name).toList()..sort();
   }
 
-  Future<EntryWithMedia?> entryForDate(DateTime date) async {
-    final start = DateTime(date.year, date.month, date.day);
-    final end = start.add(const Duration(days: 1));
-    final entry = await (select(diaryEntries)..where(
-          (t) =>
-              t.date.isBiggerOrEqualValue(start) &
-              t.date.isSmallerThanValue(end),
-        ))
-        .getSingleOrNull();
-    if (entry == null) return null;
-
-    final entryMedia = await (select(
-      media,
-    )..where((m) => m.entryId.equals(entry.id))).get();
+  Future<EntryWithMedia> _attachDetails(DiaryEntry entry) async {
+    final entryMedia =
+        await (select(media)
+              ..where((m) => m.entryId.equals(entry.id))
+              ..orderBy([(m) => OrderingTerm.asc(m.sortOrder)]))
+            .get();
     final entryTagNames = await _tagsForEntry(entry.id);
     return EntryWithMedia(
       entry: entry,
       media: entryMedia,
       tags: entryTagNames,
     );
+  }
+
+  /// A day can now hold multiple entries, so this watches all of them
+  /// (newest first) instead of a single entry per date.
+  Stream<List<EntryWithMedia>> watchEntriesForDate(DateTime date) {
+    final start = DateTime(date.year, date.month, date.day);
+    final end = start.add(const Duration(days: 1));
+    final query = select(diaryEntries)
+      ..where(
+        (t) =>
+            t.date.isBiggerOrEqualValue(start) &
+            t.date.isSmallerThanValue(end),
+      )
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
+
+    return query.watch().asyncMap(
+      (entries) => Future.wait(entries.map(_attachDetails)),
+    );
+  }
+
+  Future<EntryWithMedia?> entryById(int id) async {
+    final entry = await (select(
+      diaryEntries,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (entry == null) return null;
+    return _attachDetails(entry);
   }
 
   Future<int> _findOrCreateTag(String name) async {
@@ -111,9 +143,11 @@ class AppDatabase extends _$AppDatabase {
   Future<int> upsertEntry({
     required int? existingId,
     required DateTime date,
+    required String title,
     required String content,
     required List<MediaCompanion> mediaRows,
     List<String> tagNames = const [],
+    String? emoji,
   }) async {
     return transaction(() async {
       final int entryId;
@@ -122,7 +156,9 @@ class AppDatabase extends _$AppDatabase {
           diaryEntries,
         )..where((t) => t.id.equals(existingId))).write(
           DiaryEntriesCompanion(
+            title: Value(title),
             content: Value(content),
+            emoji: Value(emoji),
             updatedAt: Value(DateTime.now()),
           ),
         );
@@ -135,7 +171,12 @@ class AppDatabase extends _$AppDatabase {
         entryId = existingId;
       } else {
         entryId = await into(diaryEntries).insert(
-          DiaryEntriesCompanion.insert(date: date, content: content),
+          DiaryEntriesCompanion.insert(
+            date: date,
+            title: Value(title),
+            content: content,
+            emoji: Value(emoji),
+          ),
         );
       }
 

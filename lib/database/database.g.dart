@@ -31,6 +31,16 @@ class $DiaryEntriesTable extends DiaryEntries
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _contentMeta = const VerificationMeta(
     'content',
   );
@@ -46,6 +56,15 @@ class $DiaryEntriesTable extends DiaryEntries
   @override
   late final GeneratedColumn<String> mood = GeneratedColumn<String>(
     'mood',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _emojiMeta = const VerificationMeta('emoji');
+  @override
+  late final GeneratedColumn<String> emoji = GeneratedColumn<String>(
+    'emoji',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -79,8 +98,10 @@ class $DiaryEntriesTable extends DiaryEntries
   List<GeneratedColumn> get $columns => [
     id,
     date,
+    title,
     content,
     mood,
+    emoji,
     createdAt,
     updatedAt,
   ];
@@ -107,6 +128,12 @@ class $DiaryEntriesTable extends DiaryEntries
     } else if (isInserting) {
       context.missing(_dateMeta);
     }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
     if (data.containsKey('content')) {
       context.handle(
         _contentMeta,
@@ -119,6 +146,12 @@ class $DiaryEntriesTable extends DiaryEntries
       context.handle(
         _moodMeta,
         mood.isAcceptableOrUnknown(data['mood']!, _moodMeta),
+      );
+    }
+    if (data.containsKey('emoji')) {
+      context.handle(
+        _emojiMeta,
+        emoji.isAcceptableOrUnknown(data['emoji']!, _emojiMeta),
       );
     }
     if (data.containsKey('created_at')) {
@@ -150,6 +183,10 @@ class $DiaryEntriesTable extends DiaryEntries
         DriftSqlType.dateTime,
         data['${effectivePrefix}date'],
       )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
       content: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}content'],
@@ -157,6 +194,10 @@ class $DiaryEntriesTable extends DiaryEntries
       mood: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}mood'],
+      ),
+      emoji: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emoji'],
       ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
@@ -178,15 +219,19 @@ class $DiaryEntriesTable extends DiaryEntries
 class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
   final int id;
   final DateTime date;
+  final String title;
   final String content;
   final String? mood;
+  final String? emoji;
   final DateTime createdAt;
   final DateTime updatedAt;
   const DiaryEntry({
     required this.id,
     required this.date,
+    required this.title,
     required this.content,
     this.mood,
+    this.emoji,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -195,9 +240,13 @@ class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['date'] = Variable<DateTime>(date);
+    map['title'] = Variable<String>(title);
     map['content'] = Variable<String>(content);
     if (!nullToAbsent || mood != null) {
       map['mood'] = Variable<String>(mood);
+    }
+    if (!nullToAbsent || emoji != null) {
+      map['emoji'] = Variable<String>(emoji);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -208,8 +257,12 @@ class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
     return DiaryEntriesCompanion(
       id: Value(id),
       date: Value(date),
+      title: Value(title),
       content: Value(content),
       mood: mood == null && nullToAbsent ? const Value.absent() : Value(mood),
+      emoji: emoji == null && nullToAbsent
+          ? const Value.absent()
+          : Value(emoji),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -223,8 +276,10 @@ class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
     return DiaryEntry(
       id: serializer.fromJson<int>(json['id']),
       date: serializer.fromJson<DateTime>(json['date']),
+      title: serializer.fromJson<String>(json['title']),
       content: serializer.fromJson<String>(json['content']),
       mood: serializer.fromJson<String?>(json['mood']),
+      emoji: serializer.fromJson<String?>(json['emoji']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -235,8 +290,10 @@ class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'date': serializer.toJson<DateTime>(date),
+      'title': serializer.toJson<String>(title),
       'content': serializer.toJson<String>(content),
       'mood': serializer.toJson<String?>(mood),
+      'emoji': serializer.toJson<String?>(emoji),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -245,15 +302,19 @@ class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
   DiaryEntry copyWith({
     int? id,
     DateTime? date,
+    String? title,
     String? content,
     Value<String?> mood = const Value.absent(),
+    Value<String?> emoji = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => DiaryEntry(
     id: id ?? this.id,
     date: date ?? this.date,
+    title: title ?? this.title,
     content: content ?? this.content,
     mood: mood.present ? mood.value : this.mood,
+    emoji: emoji.present ? emoji.value : this.emoji,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -261,8 +322,10 @@ class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
     return DiaryEntry(
       id: data.id.present ? data.id.value : this.id,
       date: data.date.present ? data.date.value : this.date,
+      title: data.title.present ? data.title.value : this.title,
       content: data.content.present ? data.content.value : this.content,
       mood: data.mood.present ? data.mood.value : this.mood,
+      emoji: data.emoji.present ? data.emoji.value : this.emoji,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -273,8 +336,10 @@ class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
     return (StringBuffer('DiaryEntry(')
           ..write('id: $id, ')
           ..write('date: $date, ')
+          ..write('title: $title, ')
           ..write('content: $content, ')
           ..write('mood: $mood, ')
+          ..write('emoji: $emoji, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -283,15 +348,17 @@ class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
 
   @override
   int get hashCode =>
-      Object.hash(id, date, content, mood, createdAt, updatedAt);
+      Object.hash(id, date, title, content, mood, emoji, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is DiaryEntry &&
           other.id == this.id &&
           other.date == this.date &&
+          other.title == this.title &&
           other.content == this.content &&
           other.mood == this.mood &&
+          other.emoji == this.emoji &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -299,23 +366,29 @@ class DiaryEntry extends DataClass implements Insertable<DiaryEntry> {
 class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntry> {
   final Value<int> id;
   final Value<DateTime> date;
+  final Value<String> title;
   final Value<String> content;
   final Value<String?> mood;
+  final Value<String?> emoji;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const DiaryEntriesCompanion({
     this.id = const Value.absent(),
     this.date = const Value.absent(),
+    this.title = const Value.absent(),
     this.content = const Value.absent(),
     this.mood = const Value.absent(),
+    this.emoji = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
   DiaryEntriesCompanion.insert({
     this.id = const Value.absent(),
     required DateTime date,
+    this.title = const Value.absent(),
     required String content,
     this.mood = const Value.absent(),
+    this.emoji = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   }) : date = Value(date),
@@ -323,16 +396,20 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntry> {
   static Insertable<DiaryEntry> custom({
     Expression<int>? id,
     Expression<DateTime>? date,
+    Expression<String>? title,
     Expression<String>? content,
     Expression<String>? mood,
+    Expression<String>? emoji,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (date != null) 'date': date,
+      if (title != null) 'title': title,
       if (content != null) 'content': content,
       if (mood != null) 'mood': mood,
+      if (emoji != null) 'emoji': emoji,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -341,16 +418,20 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntry> {
   DiaryEntriesCompanion copyWith({
     Value<int>? id,
     Value<DateTime>? date,
+    Value<String>? title,
     Value<String>? content,
     Value<String?>? mood,
+    Value<String?>? emoji,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
     return DiaryEntriesCompanion(
       id: id ?? this.id,
       date: date ?? this.date,
+      title: title ?? this.title,
       content: content ?? this.content,
       mood: mood ?? this.mood,
+      emoji: emoji ?? this.emoji,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -365,11 +446,17 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntry> {
     if (date.present) {
       map['date'] = Variable<DateTime>(date.value);
     }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
     if (content.present) {
       map['content'] = Variable<String>(content.value);
     }
     if (mood.present) {
       map['mood'] = Variable<String>(mood.value);
+    }
+    if (emoji.present) {
+      map['emoji'] = Variable<String>(emoji.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -385,8 +472,10 @@ class DiaryEntriesCompanion extends UpdateCompanion<DiaryEntry> {
     return (StringBuffer('DiaryEntriesCompanion(')
           ..write('id: $id, ')
           ..write('date: $date, ')
+          ..write('title: $title, ')
           ..write('content: $content, ')
           ..write('mood: $mood, ')
+          ..write('emoji: $emoji, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1245,8 +1334,10 @@ typedef $$DiaryEntriesTableCreateCompanionBuilder =
     DiaryEntriesCompanion Function({
       Value<int> id,
       required DateTime date,
+      Value<String> title,
       required String content,
       Value<String?> mood,
+      Value<String?> emoji,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -1254,8 +1345,10 @@ typedef $$DiaryEntriesTableUpdateCompanionBuilder =
     DiaryEntriesCompanion Function({
       Value<int> id,
       Value<DateTime> date,
+      Value<String> title,
       Value<String> content,
       Value<String?> mood,
+      Value<String?> emoji,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -1321,6 +1414,11 @@ class $$DiaryEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get content => $composableBuilder(
     column: $table.content,
     builder: (column) => ColumnFilters(column),
@@ -1328,6 +1426,11 @@ class $$DiaryEntriesTableFilterComposer
 
   ColumnFilters<String> get mood => $composableBuilder(
     column: $table.mood,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emoji => $composableBuilder(
+    column: $table.emoji,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1411,6 +1514,11 @@ class $$DiaryEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get content => $composableBuilder(
     column: $table.content,
     builder: (column) => ColumnOrderings(column),
@@ -1418,6 +1526,11 @@ class $$DiaryEntriesTableOrderingComposer
 
   ColumnOrderings<String> get mood => $composableBuilder(
     column: $table.mood,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emoji => $composableBuilder(
+    column: $table.emoji,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -1447,11 +1560,17 @@ class $$DiaryEntriesTableAnnotationComposer
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
 
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
 
   GeneratedColumn<String> get mood =>
       $composableBuilder(column: $table.mood, builder: (column) => column);
+
+  GeneratedColumn<String> get emoji =>
+      $composableBuilder(column: $table.emoji, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -1540,15 +1659,19 @@ class $$DiaryEntriesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
+                Value<String> title = const Value.absent(),
                 Value<String> content = const Value.absent(),
                 Value<String?> mood = const Value.absent(),
+                Value<String?> emoji = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => DiaryEntriesCompanion(
                 id: id,
                 date: date,
+                title: title,
                 content: content,
                 mood: mood,
+                emoji: emoji,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -1556,15 +1679,19 @@ class $$DiaryEntriesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required DateTime date,
+                Value<String> title = const Value.absent(),
                 required String content,
                 Value<String?> mood = const Value.absent(),
+                Value<String?> emoji = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => DiaryEntriesCompanion.insert(
                 id: id,
                 date: date,
+                title: title,
                 content: content,
                 mood: mood,
+                emoji: emoji,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),

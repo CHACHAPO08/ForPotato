@@ -70,6 +70,11 @@ class BlogListPage extends ConsumerWidget {
                             ?.copyWith(color: CuteColors.textSecondary),
                       ),
                       const SizedBox(height: 6),
+                      if (item.entry.title.isNotEmpty)
+                        Text(
+                          item.entry.title,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                       if (item.entry.content.isNotEmpty)
                         Text(item.entry.content),
                       if (item.tags.isNotEmpty) ...[
