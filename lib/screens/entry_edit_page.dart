@@ -182,130 +182,130 @@ class _EntryEditPageState extends ConsumerState<EntryEditPage> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(hintText: '제목'),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-              _buildMoodPicker(context),
-              const SizedBox(height: 12),
-              _buildEmojiPicker(context),
-              const SizedBox(height: 12),
-              Expanded(
-                child: TextField(
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(hintText: '제목'),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                _buildMoodPicker(context),
+                const SizedBox(height: 12),
+                _buildEmojiPicker(context),
+                const SizedBox(height: 12),
+                TextField(
                   controller: _contentController,
                   maxLines: null,
-                  expands: true,
+                  minLines: 6,
                   textAlignVertical: TextAlignVertical.top,
-                  decoration: const InputDecoration(
-                    hintText: '오늘 하루는 어땠나요?',
-                  ),
+                  decoration: const InputDecoration(hintText: '오늘 하루는 어땠나요?'),
                 ),
-              ),
-              if (_pickedMedia.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 80,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _pickedMedia.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final media = _pickedMedia[index];
-                      return Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: media.type == MediaType.photo
-                                ? Image.memory(
-                                    media.bytes,
-                                    width: 80,
-                                    height: 80,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    width: 80,
-                                    height: 80,
-                                    color: CuteColors.accent.withValues(
-                                      alpha: 0.12,
+                if (_pickedMedia.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 80,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _pickedMedia.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final media = _pickedMedia[index];
+                        return Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: media.type == MediaType.photo
+                                  ? Image.memory(
+                                      media.bytes,
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Container(
+                                      width: 80,
+                                      height: 80,
+                                      color: CuteColors.accent.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      child: const Icon(
+                                        Icons.videocam,
+                                        size: 32,
+                                        color: CuteColors.accent,
+                                      ),
                                     ),
-                                    child: const Icon(
-                                      Icons.videocam,
-                                      size: 32,
-                                      color: CuteColors.accent,
-                                    ),
+                            ),
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: () => setState(
+                                  () => _pickedMedia.removeAt(index),
+                                ),
+                                child: const CircleAvatar(
+                                  radius: 10,
+                                  backgroundColor: CuteColors.textMain,
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 12,
+                                    color: Colors.white,
                                   ),
-                          ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: GestureDetector(
-                              onTap: () =>
-                                  setState(() => _pickedMedia.removeAt(index)),
-                              child: const CircleAvatar(
-                                radius: 10,
-                                backgroundColor: CuteColors.textMain,
-                                child: Icon(
-                                  Icons.close,
-                                  size: 12,
-                                  color: Colors.white,
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              if (_tags.isNotEmpty)
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final tag in _tags)
-                      Chip(
-                        label: Text('#$tag'),
-                        onDeleted: () => setState(() => _tags.remove(tag)),
-                      ),
-                  ],
-                ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _tagInputController,
-                decoration: const InputDecoration(
-                  hintText: '태그 입력 후 Enter (예: 여행)',
-                  prefixIcon: Icon(Icons.tag, color: CuteColors.accent),
-                  isDense: true,
-                ),
-                textInputAction: TextInputAction.done,
-                onSubmitted: _addTag,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _MediaActionButton(
-                    icon: Icons.camera_alt,
-                    label: '카메라',
-                    tooltip: '카메라로 촬영 (사진/최대 10초 영상)',
-                    onPressed: _openCamera,
-                  ),
-                  _MediaActionButton(
-                    icon: Icons.photo_library,
-                    label: '앨범',
-                    tooltip: '앨범에서 선택',
-                    onPressed: () => _pickPhoto(ImageSource.gallery),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 12),
+                if (_tags.isNotEmpty)
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final tag in _tags)
+                        Chip(
+                          label: Text('#$tag'),
+                          onDeleted: () => setState(() => _tags.remove(tag)),
+                        ),
+                    ],
+                  ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _tagInputController,
+                  decoration: const InputDecoration(
+                    hintText: '태그 입력 후 Enter (예: 여행)',
+                    prefixIcon: Icon(Icons.tag, color: CuteColors.accent),
+                    isDense: true,
+                  ),
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: _addTag,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _MediaActionButton(
+                      icon: Icons.camera_alt,
+                      label: '카메라',
+                      tooltip: '카메라로 촬영 (사진/최대 10초 영상)',
+                      onPressed: _openCamera,
+                    ),
+                    _MediaActionButton(
+                      icon: Icons.photo_library,
+                      label: '앨범',
+                      tooltip: '앨범에서 선택',
+                      onPressed: () => _pickPhoto(ImageSource.gallery),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
